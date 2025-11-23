@@ -1,0 +1,28 @@
+{
+  "app": {
+    "title": "Shipi18n Vue Example",
+    "description": "Translate your Vue app with Shipi18n"
+  },
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "settings": "Settings"
+  },
+  "greeting": "Hello, {name}!",
+  "messages": {
+    "welcome": "Welcome to our application",
+    "goodbye": "Goodbye and see you soon"
+  },
+  "items_one": "You have {count} item",
+  "items_other": "You have {count} items",
+  "buttons": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save Changes"
+  },
+  "errors": {
+    "required": "This field is required",
+    "invalid_email": "Please enter a valid email address",
+    "network": "Network error. Please try again."
+  }
+}
