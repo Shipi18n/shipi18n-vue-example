@@ -1,8 +1,9 @@
 # Shipi18n Vue Example
 
+[![CI](https://github.com/Shipi18n/shipi18n-vue-example/actions/workflows/ci.yml/badge.svg)](https://github.com/Shipi18n/shipi18n-vue-example/actions)
+[![codecov](https://codecov.io/gh/Shipi18n/shipi18n-vue-example/branch/main/graph/badge.svg)](https://codecov.io/gh/Shipi18n/shipi18n-vue-example)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub last commit](https://img.shields.io/github/last-commit/Shipi18n/shipi18n-vue-example)](https://github.com/Shipi18n/shipi18n-vue-example)
-[![CI](https://github.com/Shipi18n/shipi18n-vue-example/actions/workflows/ci.yml/badge.svg)](https://github.com/Shipi18n/shipi18n-vue-example/actions)
 
 A Vue 3 + vue-i18n example demonstrating how to integrate the [Shipi18n](https://shipi18n.com) translation API into your project.
 
