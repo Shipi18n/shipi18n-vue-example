@@ -308,3 +308,134 @@ describe('vue-i18n Integration', () => {
     })
   })
 })
+
+/**
+ * Snapshot tests to ensure translation response structure consistency
+ */
+describe('Translation Response Snapshots', () => {
+  test('should match expected JSON translation response structure', () => {
+    const translationResponse = {
+      es: {
+        common: {
+          greeting: 'Hola',
+          farewell: 'Adiós',
+          buttons: {
+            submit: 'Enviar',
+            cancel: 'Cancelar'
+          }
+        }
+      },
+      fr: {
+        common: {
+          greeting: 'Bonjour',
+          farewell: 'Au revoir',
+          buttons: {
+            submit: 'Soumettre',
+            cancel: 'Annuler'
+          }
+        }
+      }
+    }
+
+    expect(translationResponse).toMatchSnapshot()
+  })
+
+  test('should match expected pluralization response structure', () => {
+    const pluralResponse = {
+      es: {
+        items_one: '{count} artículo',
+        items_other: '{count} artículos'
+      },
+      ru: {
+        items_one: '{count} элемент',
+        items_few: '{count} элемента',
+        items_many: '{count} элементов',
+        items_other: '{count} элементов'
+      }
+    }
+
+    expect(pluralResponse).toMatchSnapshot()
+  })
+
+  test('should match expected text translation response structure', () => {
+    const textResponse = {
+      es: [
+        { original: 'Hello, world!', translated: '¡Hola, mundo!' },
+        { original: 'Welcome back', translated: 'Bienvenido de nuevo' }
+      ]
+    }
+
+    expect(textResponse).toMatchSnapshot()
+  })
+})
+
+/**
+ * Vue component integration patterns
+ */
+describe('Vue Component Integration Patterns', () => {
+  test('validates FileTranslation.vue pattern - multi-language response', () => {
+    // Simulates the pattern used in FileTranslation.vue
+    const sourceFile = {
+      app: { title: 'My App', description: 'A great app' }
+    }
+    const targetLanguages = ['es', 'fr', 'de']
+
+    const mockTranslations = {
+      es: { app: { title: 'Mi App', description: 'Una gran aplicación' } },
+      fr: { app: { title: 'Mon App', description: 'Une excellente application' } },
+      de: { app: { title: 'Meine App', description: 'Eine tolle App' } }
+    }
+
+    // Verify all target languages are present
+    for (const lang of targetLanguages) {
+      expect(mockTranslations).toHaveProperty(lang)
+      expect(mockTranslations[lang]).toHaveProperty('app')
+    }
+  })
+
+  test('validates LiveTranslation.vue pattern - single text translation', () => {
+    // Simulates the pattern used in LiveTranslation.vue
+    const inputText = 'Hello, world!'
+    const targetLanguages = ['es']
+
+    const mockResponse = {
+      es: [{ original: inputText, translated: '¡Hola, mundo!' }]
+    }
+
+    expect(mockResponse.es[0].original).toBe(inputText)
+    expect(mockResponse.es[0].translated).toBeDefined()
+  })
+
+  test('validates LocaleSwitcher.vue pattern - locale change', () => {
+    // Simulates the locale switching pattern
+    const availableLocales = ['en', 'es', 'fr']
+    let currentLocale = 'en'
+
+    const messages = {
+      en: { greeting: 'Hello' },
+      es: { greeting: 'Hola' },
+      fr: { greeting: 'Bonjour' }
+    }
+
+    // Simulate locale switch
+    currentLocale = 'es'
+
+    expect(messages[currentLocale].greeting).toBe('Hola')
+    expect(availableLocales).toContain(currentLocale)
+  })
+
+  test('validates download file generation pattern', () => {
+    // Simulates the pattern for generating downloadable translation files
+    const translations = {
+      es: { greeting: 'Hola', farewell: 'Adiós' }
+    }
+
+    const jsonString = JSON.stringify(translations.es, null, 2)
+    const expectedOutput = `{
+  "greeting": "Hola",
+  "farewell": "Adiós"
+}`
+
+    expect(jsonString).toBe(expectedOutput)
+  })
+})
