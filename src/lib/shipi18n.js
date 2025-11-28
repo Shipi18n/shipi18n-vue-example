@@ -5,8 +5,42 @@
  * Get your free API key at https://shipi18n.com
  */
 
-const API_KEY = import.meta.env.VITE_SHIPI18N_API_KEY
-const API_URL = import.meta.env.VITE_SHIPI18N_API_URL || 'https://x9527l3blg.execute-api.us-east-1.amazonaws.com'
+// Configuration - can be overridden for testing
+let config = null
+
+function getConfig() {
+  if (config) return config
+
+  // Only access import.meta.env in browser/Vite context
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return {
+      apiKey: import.meta.env.VITE_SHIPI18N_API_KEY,
+      apiUrl: import.meta.env.VITE_SHIPI18N_API_URL || 'https://x9527l3blg.execute-api.us-east-1.amazonaws.com'
+    }
+  }
+
+  return {
+    apiKey: null,
+    apiUrl: 'https://x9527l3blg.execute-api.us-east-1.amazonaws.com'
+  }
+}
+
+/**
+ * Set configuration (useful for testing)
+ * @param {Object} newConfig - Configuration object
+ * @param {string} newConfig.apiKey - API key
+ * @param {string} newConfig.apiUrl - API URL
+ */
+export function setConfig(newConfig) {
+  config = newConfig
+}
+
+/**
+ * Reset configuration to defaults (useful for testing)
+ */
+export function resetConfig() {
+  config = null
+}
 
 /**
  * Translate text to one or more languages
@@ -23,15 +57,17 @@ export async function translate({
   targetLanguages,
   preservePlaceholders = true
 }) {
-  if (!API_KEY) {
+  const { apiKey, apiUrl } = getConfig()
+
+  if (!apiKey) {
     throw new Error('VITE_SHIPI18N_API_KEY is not set. Get your free API key at https://shipi18n.com')
   }
 
-  const response = await fetch(`${API_URL}/api/translate`, {
+  const response = await fetch(`${apiUrl}/api/translate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY
+      'x-api-key': apiKey
     },
     body: JSON.stringify({
       text,
@@ -64,17 +100,19 @@ export async function translateJSON({
   targetLanguages,
   preservePlaceholders = true
 }) {
-  if (!API_KEY) {
+  const { apiKey, apiUrl } = getConfig()
+
+  if (!apiKey) {
     throw new Error('VITE_SHIPI18N_API_KEY is not set. Get your free API key at https://shipi18n.com')
   }
 
   const jsonString = typeof json === 'string' ? json : JSON.stringify(json)
 
-  const response = await fetch(`${API_URL}/api/translate`, {
+  const response = await fetch(`${apiUrl}/api/translate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY
+      'x-api-key': apiKey
     },
     body: JSON.stringify({
       json: jsonString,
@@ -97,12 +135,15 @@ export async function translateJSON({
  * @returns {Promise<Object>} Health status
  */
 export async function healthCheck() {
-  const response = await fetch(`${API_URL}/api/health`)
+  const { apiUrl } = getConfig()
+  const response = await fetch(`${apiUrl}/api/health`)
   return response.json()
 }
 
 export default {
   translate,
   translateJSON,
-  healthCheck
+  healthCheck,
+  setConfig,
+  resetConfig
 }

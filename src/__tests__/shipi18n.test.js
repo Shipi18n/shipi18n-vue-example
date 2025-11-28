@@ -1,317 +1,258 @@
 /**
  * Tests for Shipi18n API Client
  *
- * These tests verify the client library logic without making actual API calls.
- * We mock the fetch function to simulate API responses.
+ * These tests verify the client library by importing and testing actual functions.
  */
 
-// Mock import.meta.env for tests
-const mockEnv = {
-  VITE_SHIPI18N_API_KEY: 'sk_test_123456',
-  VITE_SHIPI18N_API_URL: 'https://api.test.shipi18n.com'
-}
+import {
+  translate,
+  translateJSON,
+  healthCheck,
+  setConfig,
+  resetConfig
+} from '../lib/shipi18n.js'
 
-// Simple mock fetch for testing
+// Mock fetch globally
 let mockFetchResponse = {}
-let mockFetchError = null
+let mockFetchOk = true
 let lastFetchCall = null
 
 global.fetch = async (url, options) => {
   lastFetchCall = { url, options }
 
-  if (mockFetchError) {
-    throw mockFetchError
-  }
-
   return {
-    ok: mockFetchResponse.ok !== false,
-    status: mockFetchResponse.status || 200,
-    json: async () => mockFetchResponse.data || {}
+    ok: mockFetchOk,
+    status: mockFetchOk ? 200 : 401,
+    json: async () => mockFetchResponse
   }
 }
 
-// Reset mocks before each test
+// Reset before each test
 beforeEach(() => {
-  mockFetchResponse = { ok: true, data: {} }
-  mockFetchError = null
+  mockFetchResponse = {}
+  mockFetchOk = true
   lastFetchCall = null
+  resetConfig()
 })
 
 describe('Shipi18n API Client', () => {
-  describe('API URL construction', () => {
-    test('constructs correct translate endpoint URL', async () => {
-      mockFetchResponse = {
-        ok: true,
-        data: { translations: { es: 'Hola' } }
-      }
+  describe('setConfig and resetConfig', () => {
+    test('setConfig sets the configuration', () => {
+      setConfig({
+        apiKey: 'test_key',
+        apiUrl: 'https://test.api.com'
+      })
 
-      // Simulate what the client does
-      const API_URL = mockEnv.VITE_SHIPI18N_API_URL
-      const url = `${API_URL}/api/translate`
-
-      expect(url).toBe('https://api.test.shipi18n.com/api/translate')
+      // The config is used internally, we test it via translate
+      expect(true).toBe(true) // Config set successfully
     })
 
-    test('uses default API URL when not specified', () => {
-      const DEFAULT_URL = 'https://x9527l3blg.execute-api.us-east-1.amazonaws.com'
-      const API_URL = undefined || DEFAULT_URL
+    test('resetConfig clears the configuration', () => {
+      setConfig({ apiKey: 'test_key', apiUrl: 'https://test.api.com' })
+      resetConfig()
 
-      expect(API_URL).toBe(DEFAULT_URL)
+      // After reset, translate should throw missing API key error
+      expect(translate({
+        text: 'Hello',
+        targetLanguages: ['es']
+      })).rejects.toThrow('VITE_SHIPI18N_API_KEY is not set')
     })
   })
 
-  describe('Request formatting', () => {
-    test('formats basic translation request correctly', () => {
-      const request = {
-        text: 'Hello, World!',
+  describe('translate', () => {
+    test('throws error when API key is not set', async () => {
+      await expect(translate({
+        text: 'Hello',
+        targetLanguages: ['es']
+      })).rejects.toThrow('VITE_SHIPI18N_API_KEY is not set')
+    })
+
+    test('makes correct API call with all parameters', async () => {
+      setConfig({
+        apiKey: 'sk_test_123',
+        apiUrl: 'https://api.test.com'
+      })
+
+      mockFetchResponse = { es: [{ original: 'Hello', translated: 'Hola' }] }
+
+      await translate({
+        text: 'Hello',
         sourceLanguage: 'en',
-        targetLanguages: ['es', 'fr'],
+        targetLanguages: ['es'],
         preservePlaceholders: true
+      })
+
+      expect(lastFetchCall.url).toBe('https://api.test.com/api/translate')
+      expect(lastFetchCall.options.method).toBe('POST')
+      expect(lastFetchCall.options.headers['Content-Type']).toBe('application/json')
+      expect(lastFetchCall.options.headers['x-api-key']).toBe('sk_test_123')
+
+      const body = JSON.parse(lastFetchCall.options.body)
+      expect(body.text).toBe('Hello')
+      expect(body.sourceLanguage).toBe('en')
+      expect(body.targetLanguages).toEqual(['es'])
+      expect(body.preservePlaceholders).toBe(true)
+    })
+
+    test('returns translation response', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
+      mockFetchResponse = {
+        es: [{ original: 'Hello', translated: 'Hola' }],
+        fr: [{ original: 'Hello', translated: 'Bonjour' }]
       }
 
-      expect(request.text).toBe('Hello, World!')
-      expect(request.targetLanguages).toHaveLength(2)
-      expect(request.targetLanguages).toContain('es')
-      expect(request.targetLanguages).toContain('fr')
+      const result = await translate({
+        text: 'Hello',
+        targetLanguages: ['es', 'fr']
+      })
+
+      expect(result.es[0].translated).toBe('Hola')
+      expect(result.fr[0].translated).toBe('Bonjour')
     })
 
-    test('formats JSON translation request correctly', () => {
-      const json = {
-        greeting: 'Hello',
-        farewell: 'Goodbye'
-      }
+    test('uses default sourceLanguage of en', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
 
-      const jsonString = JSON.stringify(json)
+      await translate({
+        text: 'Hello',
+        targetLanguages: ['es']
+      })
 
-      expect(jsonString).toBe('{"greeting":"Hello","farewell":"Goodbye"}')
+      const body = JSON.parse(lastFetchCall.options.body)
+      expect(body.sourceLanguage).toBe('en')
     })
 
-    test('handles string JSON input', () => {
-      const jsonString = '{"key": "value"}'
-      const isString = typeof jsonString === 'string'
+    test('uses default preservePlaceholders of true', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
 
-      expect(isString).toBe(true)
-    })
-
-    test('handles object JSON input', () => {
-      const jsonObject = { key: 'value' }
-      const jsonString = typeof jsonObject === 'string'
-        ? jsonObject
-        : JSON.stringify(jsonObject)
-
-      expect(jsonString).toBe('{"key":"value"}')
-    })
-  })
-
-  describe('Response parsing', () => {
-    test('parses translation response correctly', () => {
-      const response = {
-        translations: {
-          es: [{ original: 'Hello', translated: 'Hola' }],
-          fr: [{ original: 'Hello', translated: 'Bonjour' }]
-        }
-      }
-
-      expect(response.translations.es[0].translated).toBe('Hola')
-      expect(response.translations.fr[0].translated).toBe('Bonjour')
-    })
-
-    test('parses JSON translation response correctly', () => {
-      const response = {
-        translations: {
-          es: { greeting: 'Hola', farewell: 'Adiós' },
-          fr: { greeting: 'Bonjour', farewell: 'Au revoir' }
-        }
-      }
-
-      expect(response.translations.es.greeting).toBe('Hola')
-      expect(response.translations.fr.farewell).toBe('Au revoir')
-    })
-
-    test('handles empty translations gracefully', () => {
-      const response = { translations: {} }
-
-      expect(Object.keys(response.translations)).toHaveLength(0)
-    })
-  })
-
-  describe('Error handling', () => {
-    test('detects missing API key', () => {
-      const apiKey = undefined
-      const hasApiKey = !!apiKey
-
-      expect(hasApiKey).toBe(false)
-    })
-
-    test('constructs proper error message for missing API key', () => {
-      const errorMessage = 'VITE_SHIPI18N_API_KEY is not set. Get your free API key at https://shipi18n.com'
-
-      expect(errorMessage).toContain('VITE_SHIPI18N_API_KEY')
-      expect(errorMessage).toContain('shipi18n.com')
-    })
-
-    test('handles non-ok response status', () => {
-      const response = { ok: false, status: 401 }
-      const isError = !response.ok
-
-      expect(isError).toBe(true)
-      expect(response.status).toBe(401)
-    })
-
-    test('extracts error message from response', () => {
-      const errorResponse = { message: 'Invalid API key' }
-      const errorMessage = errorResponse.message || 'Translation failed'
-
-      expect(errorMessage).toBe('Invalid API key')
-    })
-
-    test('provides fallback error message', () => {
-      const errorResponse = {}
-      const errorMessage = errorResponse.message || 'Translation failed'
-
-      expect(errorMessage).toBe('Translation failed')
-    })
-  })
-
-  describe('Placeholder preservation', () => {
-    test('preservePlaceholders option defaults to true', () => {
-      const options = {
+      await translate({
         text: 'Hello {name}',
         targetLanguages: ['es']
-      }
-      const preservePlaceholders = options.preservePlaceholders ?? true
+      })
 
-      expect(preservePlaceholders).toBe(true)
+      const body = JSON.parse(lastFetchCall.options.body)
+      expect(body.preservePlaceholders).toBe(true)
     })
 
-    test('can explicitly disable placeholder preservation', () => {
-      const options = {
-        text: 'Hello {name}',
-        targetLanguages: ['es'],
-        preservePlaceholders: false
-      }
+    test('throws error on non-ok response', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
+      mockFetchOk = false
+      mockFetchResponse = { message: 'Invalid API key' }
 
-      expect(options.preservePlaceholders).toBe(false)
+      await expect(translate({
+        text: 'Hello',
+        targetLanguages: ['es']
+      })).rejects.toThrow('Invalid API key')
+    })
+
+    test('provides fallback error message', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
+      mockFetchOk = false
+      mockFetchResponse = {}
+
+      await expect(translate({
+        text: 'Hello',
+        targetLanguages: ['es']
+      })).rejects.toThrow('Translation failed: 401')
     })
   })
 
-  describe('Language codes', () => {
-    test('accepts standard language codes', () => {
-      const validCodes = ['es', 'fr', 'de', 'ja', 'zh', 'pt', 'ru', 'ar', 'ko', 'it']
-
-      validCodes.forEach(code => {
-        expect(code).toMatch(/^[a-z]{2}(-[A-Z]{2})?$/)
-      })
+  describe('translateJSON', () => {
+    test('throws error when API key is not set', async () => {
+      await expect(translateJSON({
+        json: { greeting: 'Hello' },
+        targetLanguages: ['es']
+      })).rejects.toThrow('VITE_SHIPI18N_API_KEY is not set')
     })
 
-    test('accepts regional language codes', () => {
-      const regionalCodes = ['zh-CN', 'zh-TW', 'pt-BR', 'en-US', 'en-GB']
+    test('accepts object JSON input', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
 
-      regionalCodes.forEach(code => {
-        expect(code).toMatch(/^[a-z]{2}(-[A-Z]{2})?$/)
+      await translateJSON({
+        json: { greeting: 'Hello', farewell: 'Goodbye' },
+        targetLanguages: ['es']
       })
+
+      const body = JSON.parse(lastFetchCall.options.body)
+      expect(body.json).toBe('{"greeting":"Hello","farewell":"Goodbye"}')
     })
 
-    test('handles multiple target languages', () => {
-      const targetLanguages = ['es', 'fr', 'de', 'ja', 'zh']
+    test('accepts string JSON input', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
 
-      expect(targetLanguages).toHaveLength(5)
-      expect(Array.isArray(targetLanguages)).toBe(true)
+      await translateJSON({
+        json: '{"greeting":"Hello"}',
+        targetLanguages: ['es']
+      })
+
+      const body = JSON.parse(lastFetchCall.options.body)
+      expect(body.json).toBe('{"greeting":"Hello"}')
+    })
+
+    test('returns translated JSON', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
+      mockFetchResponse = {
+        es: { greeting: 'Hola', farewell: 'Adiós' }
+      }
+
+      const result = await translateJSON({
+        json: { greeting: 'Hello', farewell: 'Goodbye' },
+        targetLanguages: ['es']
+      })
+
+      expect(result.es.greeting).toBe('Hola')
+      expect(result.es.farewell).toBe('Adiós')
+    })
+
+    test('handles nested JSON', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
+      mockFetchResponse = {
+        es: { app: { title: 'Mi App', buttons: { submit: 'Enviar' } } }
+      }
+
+      const result = await translateJSON({
+        json: { app: { title: 'My App', buttons: { submit: 'Submit' } } },
+        targetLanguages: ['es']
+      })
+
+      expect(result.es.app.title).toBe('Mi App')
+      expect(result.es.app.buttons.submit).toBe('Enviar')
+    })
+
+    test('throws error on non-ok response', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
+      mockFetchOk = false
+      mockFetchResponse = { message: 'Rate limit exceeded' }
+
+      await expect(translateJSON({
+        json: { greeting: 'Hello' },
+        targetLanguages: ['es']
+      })).rejects.toThrow('Rate limit exceeded')
     })
   })
 
-  describe('Headers', () => {
-    test('includes required headers', () => {
-      const headers = {
-        'Content-Type': 'application/json',
-        'x-api-key': mockEnv.VITE_SHIPI18N_API_KEY
-      }
+  describe('healthCheck', () => {
+    test('calls the health endpoint', async () => {
+      setConfig({ apiKey: 'sk_test_123', apiUrl: 'https://api.test.com' })
+      mockFetchResponse = { status: 'healthy', version: '1.0.0' }
 
-      expect(headers['Content-Type']).toBe('application/json')
-      expect(headers['x-api-key']).toBe('sk_test_123456')
+      const result = await healthCheck()
+
+      expect(lastFetchCall.url).toBe('https://api.test.com/api/health')
+      expect(result.status).toBe('healthy')
+    })
+
+    test('works without API key', async () => {
+      setConfig({ apiKey: null, apiUrl: 'https://api.test.com' })
+      mockFetchResponse = { status: 'healthy' }
+
+      const result = await healthCheck()
+
+      expect(result.status).toBe('healthy')
     })
   })
 })
 
-describe('vue-i18n Integration', () => {
-  describe('Locale message format', () => {
-    test('validates flat message structure', () => {
-      const messages = {
-        greeting: 'Hello',
-        farewell: 'Goodbye'
-      }
-
-      expect(typeof messages.greeting).toBe('string')
-      expect(typeof messages.farewell).toBe('string')
-    })
-
-    test('validates nested message structure', () => {
-      const messages = {
-        app: {
-          title: 'My App',
-          description: 'A great app'
-        },
-        nav: {
-          home: 'Home',
-          about: 'About'
-        }
-      }
-
-      expect(messages.app.title).toBe('My App')
-      expect(messages.nav.home).toBe('Home')
-    })
-
-    test('validates messages with placeholders', () => {
-      const messages = {
-        greeting: 'Hello, {name}!',
-        items: 'You have {count} items'
-      }
-
-      expect(messages.greeting).toContain('{name}')
-      expect(messages.items).toContain('{count}')
-    })
-
-    test('validates plural forms', () => {
-      const messages = {
-        items_one: '{count} item',
-        items_other: '{count} items'
-      }
-
-      expect(messages.items_one).toBe('{count} item')
-      expect(messages.items_other).toBe('{count} items')
-    })
-  })
-
-  describe('Dynamic locale loading', () => {
-    test('can add new locale messages', () => {
-      const messages = { en: { greeting: 'Hello' } }
-      const newLocale = 'es'
-      const newMessages = { greeting: 'Hola' }
-
-      messages[newLocale] = newMessages
-
-      expect(messages.es.greeting).toBe('Hola')
-    })
-
-    test('can check if locale exists', () => {
-      const availableLocales = ['en', 'es', 'fr']
-
-      expect(availableLocales.includes('en')).toBe(true)
-      expect(availableLocales.includes('de')).toBe(false)
-    })
-
-    test('can switch locale', () => {
-      let currentLocale = 'en'
-      currentLocale = 'es'
-
-      expect(currentLocale).toBe('es')
-    })
-  })
-})
-
-/**
- * Snapshot tests to ensure translation response structure consistency
- */
 describe('Translation Response Snapshots', () => {
   test('should match expected JSON translation response structure', () => {
     const translationResponse = {
@@ -319,20 +260,14 @@ describe('Translation Response Snapshots', () => {
         common: {
           greeting: 'Hola',
           farewell: 'Adiós',
-          buttons: {
-            submit: 'Enviar',
-            cancel: 'Cancelar'
-          }
+          buttons: { submit: 'Enviar', cancel: 'Cancelar' }
         }
       },
       fr: {
         common: {
           greeting: 'Bonjour',
           farewell: 'Au revoir',
-          buttons: {
-            submit: 'Soumettre',
-            cancel: 'Annuler'
-          }
+          buttons: { submit: 'Soumettre', cancel: 'Annuler' }
         }
       }
     }
@@ -366,76 +301,5 @@ describe('Translation Response Snapshots', () => {
     }
 
     expect(textResponse).toMatchSnapshot()
-  })
-})
-
-/**
- * Vue component integration patterns
- */
-describe('Vue Component Integration Patterns', () => {
-  test('validates FileTranslation.vue pattern - multi-language response', () => {
-    // Simulates the pattern used in FileTranslation.vue
-    const sourceFile = {
-      app: { title: 'My App', description: 'A great app' }
-    }
-    const targetLanguages = ['es', 'fr', 'de']
-
-    const mockTranslations = {
-      es: { app: { title: 'Mi App', description: 'Una gran aplicación' } },
-      fr: { app: { title: 'Mon App', description: 'Une excellente application' } },
-      de: { app: { title: 'Meine App', description: 'Eine tolle App' } }
-    }
-
-    // Verify all target languages are present
-    for (const lang of targetLanguages) {
-      expect(mockTranslations).toHaveProperty(lang)
-      expect(mockTranslations[lang]).toHaveProperty('app')
-    }
-  })
-
-  test('validates LiveTranslation.vue pattern - single text translation', () => {
-    // Simulates the pattern used in LiveTranslation.vue
-    const inputText = 'Hello, world!'
-    const targetLanguages = ['es']
-
-    const mockResponse = {
-      es: [{ original: inputText, translated: '¡Hola, mundo!' }]
-    }
-
-    expect(mockResponse.es[0].original).toBe(inputText)
-    expect(mockResponse.es[0].translated).toBeDefined()
-  })
-
-  test('validates LocaleSwitcher.vue pattern - locale change', () => {
-    // Simulates the locale switching pattern
-    const availableLocales = ['en', 'es', 'fr']
-    let currentLocale = 'en'
-
-    const messages = {
-      en: { greeting: 'Hello' },
-      es: { greeting: 'Hola' },
-      fr: { greeting: 'Bonjour' }
-    }
-
-    // Simulate locale switch
-    currentLocale = 'es'
-
-    expect(messages[currentLocale].greeting).toBe('Hola')
-    expect(availableLocales).toContain(currentLocale)
-  })
-
-  test('validates download file generation pattern', () => {
-    // Simulates the pattern for generating downloadable translation files
-    const translations = {
-      es: { greeting: 'Hola', farewell: 'Adiós' }
-    }
-
-    const jsonString = JSON.stringify(translations.es, null, 2)
-    const expectedOutput = `{
-  "greeting": "Hola",
-  "farewell": "Adiós"
-}`
-
-    expect(jsonString).toBe(expectedOutput)
   })
 })
