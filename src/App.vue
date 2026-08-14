@@ -1,17 +1,10 @@
 <script setup>
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import FileTranslation from './components/FileTranslation.vue'
-import LiveTranslation from './components/LiveTranslation.vue'
 import LocaleSwitcher from './components/LocaleSwitcher.vue'
 
-const { t, locale } = useI18n()
-
-const activeTab = ref('file')
-const tabs = [
-  { id: 'file', label: 'File Translation', icon: '📁' },
-  { id: 'live', label: 'Live Translation', icon: '⚡' }
-]
+const { t } = useI18n()
+const itemCount = ref(3)
 </script>
 
 <template>
@@ -22,110 +15,71 @@ const tabs = [
       <LocaleSwitcher />
     </header>
 
-    <nav class="tabs">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        :class="['tab', { active: activeTab === tab.id }]"
-        @click="activeTab = tab.id"
-      >
-        <span class="icon">{{ tab.icon }}</span>
-        {{ tab.label }}
-      </button>
-    </nav>
-
     <main>
-      <FileTranslation v-if="activeTab === 'file'" />
-      <LiveTranslation v-else-if="activeTab === 'live'" />
-    </main>
+      <section class="card">
+        <!-- Named interpolation: {name} survives translation -->
+        <h2>{{ t('greeting', { name: 'Ada' }) }}</h2>
+        <p>{{ t('messages.welcome') }}</p>
 
-    <footer>
-      <p>
-        Built with <a href="https://shipi18n.com" target="_blank">Shipi18n</a> +
-        <a href="https://vue-i18n.intlify.dev/" target="_blank">vue-i18n</a>
-      </p>
-    </footer>
+        <!-- Pluralisation: vue-i18n picks items_one / items_other -->
+        <p>{{ t('items', itemCount, { count: itemCount }) }}</p>
+        <p class="muted">{{ t('items', 1, { count: 1 }) }}</p>
+
+        <div class="counter">
+          <button type="button" @click="itemCount = Math.max(0, itemCount - 1)">−</button>
+          <span>{{ itemCount }}</span>
+          <button type="button" @click="itemCount++">+</button>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="primary">{{ t('buttons.save') }}</button>
+          <button type="button">{{ t('buttons.cancel') }}</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>{{ t('nav.settings') }}</h3>
+        <p class="error">{{ t('errors.required') }}</p>
+        <p class="error">{{ t('errors.invalid_email') }}</p>
+      </section>
+
+      <footer>
+        <p class="muted">{{ t('footer') }}</p>
+        <a href="https://github.com/Shipi18n/shipi18n" target="_blank" rel="noopener noreferrer">
+          github.com/Shipi18n/shipi18n
+        </a>
+      </footer>
+    </main>
   </div>
 </template>
 
 <style scoped>
-.app {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 2rem;
+.app { max-width: 40rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+header { text-align: center; margin-bottom: 2rem; }
+h1 { margin: 0 0 .25rem; }
+.subtitle { color: #666; margin: 0; }
+
+.card {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: .75rem;
+  padding: 1.5rem; margin-bottom: 1.25rem;
+}
+.card h2, .card h3 { margin-top: 0; }
+.muted { color: #6b7280; font-size: .9rem; }
+.error { color: #b91c1c; margin: .25rem 0; }
+
+.counter { display: flex; align-items: center; gap: .75rem; margin: 1rem 0; }
+.counter button {
+  width: 2rem; height: 2rem; border: 1px solid #ddd; border-radius: .375rem;
+  background: #fff; cursor: pointer; font-size: 1rem;
 }
 
-header {
-  text-align: center;
-  margin-bottom: 2rem;
+.actions { display: flex; gap: .5rem; }
+.actions button {
+  padding: .5rem 1rem; border: 1px solid #ddd; border-radius: .5rem;
+  background: #fff; cursor: pointer; font: inherit;
 }
+.actions .primary { background: #4a90d9; border-color: #4a90d9; color: #fff; }
 
-header h1 {
-  margin: 0;
-  color: #2c3e50;
-}
-
-.subtitle {
-  color: #666;
-  margin-top: 0.5rem;
-}
-
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 0.5rem;
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 1rem;
-  color: #666;
-  border-radius: 8px 8px 0 0;
-  transition: all 0.2s;
-}
-
-.tab:hover {
-  background: #f5f5f5;
-  color: #333;
-}
-
-.tab.active {
-  background: #4a90d9;
-  color: white;
-}
-
-.icon {
-  font-size: 1.2rem;
-}
-
-main {
-  background: #fff;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-footer {
-  text-align: center;
-  margin-top: 2rem;
-  color: #888;
-  font-size: 0.9rem;
-}
-
-footer a {
-  color: #4a90d9;
-  text-decoration: none;
-}
-
-footer a:hover {
-  text-decoration: underline;
-}
+footer { text-align: center; margin-top: 2rem; }
+footer a { color: #4a90d9; }
 </style>
