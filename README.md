@@ -80,14 +80,19 @@ There is a test asserting exactly this, because if a model ever ate the `|` the 
 
 Results are cached in `node_modules/.cache/vite-plugin-shipi18n`, so a rebuild with unchanged strings makes no model calls. Delete that directory to force a full re-translation.
 
-To skip translation on local builds entirely:
+To skip translation when no key is present — CI, a contributor's laptop — gate the **plugin**, not the language list. An empty `targetLanguages` throws:
 
 ```js
-shipi18n({
-  provider: 'anthropic',
-  targetLanguages: process.env.CI ? ['es', 'fr', 'de'] : [],
+const translate = process.env.ANTHROPIC_API_KEY
+  ? [shipi18n({ provider: 'anthropic', targetLanguages: ['es', 'fr', 'de'] })]
+  : []
+
+export default defineConfig({
+  plugins: [vue(), ...translate],
 })
 ```
+
+Because the generated files are committed, a keyless build simply reuses them.
 
 ## Tests
 
